@@ -28,6 +28,12 @@ dependencies {
 }
 ```
 
+# Example app
+
+The app implements a `LazyRow` with elements behving like a pager with a dismiss action whenever the user scrolls past the edge.
+
+https://github.com/user-attachments/assets/68df46f0-df54-4b90-ba2d-900a663de364
+
 # Usage
 
 The library is an extension over the Compose's `OverscrollEffect` that has an ability to modify the rendering of the view which is being overscrolled as well as invoking a callback whenever the threshold has been met.
