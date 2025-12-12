@@ -1,76 +1,77 @@
-This is a Kotlin Multiplatform project targeting Android, iOS, Web, Desktop (JVM).
+# Overscrolled
 
-* [/composeApp](./composeApp/src) is for code that will be shared across your Compose Multiplatform applications.
-  It contains several subfolders:
-  - [commonMain](./composeApp/src/commonMain/kotlin) is for code that’s common for all targets.
-  - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
-    For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
-    the [iosMain](./composeApp/src/iosMain/kotlin) folder would be the right place for such calls.
-    Similarly, if you want to edit the Desktop (JVM) specific part, the [jvmMain](./composeApp/src/jvmMain/kotlin)
-    folder is the appropriate location.
+An implementation of the `OverscrollEffect` that allows the view to be dismissed with a callback for Compose.
 
-* [/iosApp](./iosApp/iosApp) contains iOS applications. Even if you’re sharing your UI with Compose Multiplatform,
-  you need this entry point for your iOS app. This is also where you should add SwiftUI code for your project.
+![badge-android](https://img.shields.io/badge/android-6EDB8D.svg)
+![badge-ios](http://img.shields.io/badge/ios-CDCDCD.svg)
+![badge-jvm](http://img.shields.io/badge/jvm-DB413D.svg)
+![badge-js](http://img.shields.io/badge/js-F8DB5D.svg)
 
-### Build and Run Android Application
+# Installation
 
-To build and run the development version of the Android app, use the run configuration from the run widget
-in your IDE’s toolbar or build it directly from the terminal:
-- on macOS/Linux
-  ```shell
-  ./gradlew :composeApp:assembleDebug
-  ```
-- on Windows
-  ```shell
-  .\gradlew.bat :composeApp:assembleDebug
-  ```
+![badge-multiplatform](https://img.shields.io/badge/multiplatform-313131.svg)
+[![Sonatype Central](https://maven-badges.sml.io/sonatype-central/io.github.pchochura/overscrolled/badge.svg)](https://maven-badges.sml.io/sonatype-central/io.github.pchochura/overscrolled/)
 
-### Build and Run Desktop (JVM) Application
+settings.gradle.kts:
+```kotlin
+pluginManagement {
+  repositories {
+    mavenCentral()
+  }
+}
+```
 
-To build and run the development version of the desktop app, use the run configuration from the run widget
-in your IDE’s toolbar or run it directly from the terminal:
-- on macOS/Linux
-  ```shell
-  ./gradlew :composeApp:run
-  ```
-- on Windows
-  ```shell
-  .\gradlew.bat :composeApp:run
-  ```
+gradle.kts:
+```kotlin
+dependencies {
+  implementation("io.github.pchochura:overscrolled:{LATEST_VERSION}")
+}
+```
 
-### Build and Run Web Application
+# Usage
 
-To build and run the development version of the web app, use the run configuration from the run widget
-in your IDE's toolbar or run it directly from the terminal:
-- for the Wasm target (faster, modern browsers):
-  - on macOS/Linux
-    ```shell
-    ./gradlew :composeApp:wasmJsBrowserDevelopmentRun
-    ```
-  - on Windows
-    ```shell
-    .\gradlew.bat :composeApp:wasmJsBrowserDevelopmentRun
-    ```
-- for the JS target (slower, supports older browsers):
-  - on macOS/Linux
-    ```shell
-    ./gradlew :composeApp:jsBrowserDevelopmentRun
-    ```
-  - on Windows
-    ```shell
-    .\gradlew.bat :composeApp:jsBrowserDevelopmentRun
-    ```
+The library is an extension over the Compose's `OverscrollEffect` that has an ability to modify the rendering of the view which is being overscrolled as well as invoking a callback whenever the threshold has been met.
 
-### Build and Run iOS Application
+```kotlin
+// That's just for the user to know whether they reached the threshold
+val hapticFeedback = LocalHapticFeedback.current
+val state = rememberLazyListState()
+LazyRow(
+    state = state,
+    flingBehavior = rememberSnapFlingBehavior(state),
+    overscrollEffect = rememberOverscrolledEffect(
+        orientation = Orientation.Horizontal,
+        threshold = 100f,
+        layerBlock = { progress ->
+            // This callback is invoked on every frame with the context of `GraphicsLayerScope`
+            // which can be altered depending on the progress of the overscroll.
 
-To build and run the development version of the iOS app, use the run configuration from the run widget
-in your IDE’s toolbar or open the [/iosApp](./iosApp) directory in Xcode and run it from there.
-
----
-
-Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html),
-[Compose Multiplatform](https://github.com/JetBrains/compose-multiplatform/#compose-multiplatform),
-[Kotlin/Wasm](https://kotl.in/wasm/)…
-
-We would appreciate your feedback on Compose/Web and Kotlin/Wasm in the public Slack channel [#compose-web](https://slack-chats.kotlinlang.org/c/compose-web).
-If you face any issues, please report them on [YouTrack](https://youtrack.jetbrains.com/newIssue?project=CMP).
+            alpha = (1 - progress.absoluteValue).coerceAtLeast(0.3f)
+            scaleX = 1 - (0.05f * progress.absoluteValue)
+            scaleY = 1 - (0.05f * progress.absoluteValue)
+            transformOrigin = TransformOrigin(
+                pivotFractionX = if (progress > 0) 1f else 0f,
+                pivotFractionY = 0.5f,
+            )
+        },
+        onOverscrolled = { finished ->
+            // This callback is invoked when the threshold is met. The finished parameter
+            // indicates whether the user lifted the finger finishing the overscroll.
+            
+            if (finished) {
+                hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
+                onDismissRequest()
+            } else {
+                hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
+            }
+        }
+    ),
+) {
+    items(listOf(1, 2, 3)) {
+        Text(
+            modifier = Modifier.fillParentMaxSize(),
+            text = "$it",
+        )
+    }
+}
+```
