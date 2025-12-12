@@ -1,4 +1,4 @@
-package com.pointlessapps.overscrolled
+package com.pointlessapps.overscrolled.example
 
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
