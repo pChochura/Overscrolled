@@ -66,7 +66,6 @@ fun Dialog(
         Color.Cyan, Color.Blue, Color.Green, Color.Yellow, Color.Red,
     )
 
-    var reachedConfirmation by remember { mutableStateOf(false) }
     val hapticFeedback = LocalHapticFeedback.current
 
     Dialog(
@@ -81,9 +80,9 @@ fun Dialog(
             verticalAlignment = Alignment.CenterVertically,
             overscrollEffect = rememberOverscrolledEffect(
                 orientation = Orientation.Horizontal,
-                threshold = 300f,
-                effect = { progress ->
-                    alpha = 1 - progress.absoluteValue
+                threshold = 100f,
+                layerBlock = { progress ->
+                    alpha = (1 - progress.absoluteValue).coerceAtLeast(0.3f)
                     scaleX = 1 - (0.05f * progress.absoluteValue)
                     scaleY = 1 - (0.05f * progress.absoluteValue)
                     transformOrigin = TransformOrigin(
@@ -91,23 +90,16 @@ fun Dialog(
                         pivotFractionY = 0.5f,
                     )
                 },
-                onOverscrolled = { progress, finished ->
-                    if (progress.absoluteValue > 0.4) {
-                        if (!reachedConfirmation) {
-                            reachedConfirmation = true
-                            hapticFeedback.performHapticFeedback(
-                                HapticFeedbackType.GestureThresholdActivate,
-                            )
-                        }
-
-                        if (finished) {
-                            hapticFeedback.performHapticFeedback(
-                                HapticFeedbackType.Confirm,
-                            )
-                            onDismissRequest()
-                        }
+                onOverscrolled = { finished ->
+                    if (finished) {
+                        hapticFeedback.performHapticFeedback(
+                            HapticFeedbackType.Confirm,
+                        )
+                        onDismissRequest()
                     } else {
-                        reachedConfirmation = false
+                        hapticFeedback.performHapticFeedback(
+                            HapticFeedbackType.GestureThresholdActivate,
+                        )
                     }
                 }
             ),

@@ -22,22 +22,32 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.round
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.absoluteValue
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sign
 
 /**
- * An [OverscrollEffect] implementation that moves the content with a dampening force
- * and returns the offset on every frame to the caller with the information whether it was finished.
+ * An [OverscrollEffect] implementation that moves the content in the same direction as the scroll
+ * happens with a dampening force.
+ *
+ * It also exposes a [layerBlock] that allows the caller to control exactly how to style the content
+ * when it is being overscrolled. The provided [layerBlock(progress)] is signed to inform in which
+ * direction the content is being overscrolled.
+ * The [onOverscrolled] callback is invoked once the threshold is met and it contains a parameter
+ * that indicates whether the user has lifted the finger.
  */
 @Composable
 fun rememberOverscrolledEffect(
     orientation: Orientation,
     threshold: Float,
-    effect: GraphicsLayerScope.(progress: Float) -> Unit,
-    onOverscrolled: (progress: Float, finished: Boolean) -> Unit,
+    layerBlock: GraphicsLayerScope.(progress: Float) -> Unit,
+    onOverscrolled: (finished: Boolean) -> Unit,
 ): OverscrollEffect {
     val scope = rememberCoroutineScope()
 
@@ -45,7 +55,7 @@ fun rememberOverscrolledEffect(
         OverscrollEffectImpl(
             orientation = orientation,
             threshold = threshold,
-            effect = effect,
+            layerBlock = layerBlock,
             onOverscrolled = onOverscrolled,
             scope = scope,
         )
@@ -55,8 +65,8 @@ fun rememberOverscrolledEffect(
 private class OverscrollEffectImpl(
     private val orientation: Orientation,
     private val threshold: Float,
-    private val effect: GraphicsLayerScope.(progress: Float) -> Unit,
-    private val onOverscrolled: (progress: Float, finished: Boolean) -> Unit,
+    private val layerBlock: GraphicsLayerScope.(progress: Float) -> Unit,
+    private val onOverscrolled: (finished: Boolean) -> Unit,
     private val scope: CoroutineScope,
 ) : OverscrollEffect {
 
@@ -68,15 +78,17 @@ private class OverscrollEffectImpl(
         get() = currentOffset != Offset.Zero
 
     override val node = OffsetPxNode(
-        graphicsLayerCallback = { effect(currentOffset.value() / threshold) },
+        layerBlock = { layerBlock(currentOffset.value() / threshold) },
         offset = { offsetAnimatable.value.round() },
     )
 
     init {
         scope.launch {
-            snapshotFlow(offsetAnimatable::value).collect {
-                onOverscrolled(currentOffset.value() / threshold, false)
-            }
+            snapshotFlow(offsetAnimatable::value)
+                .map { it.value().absoluteValue }
+                .distinctUntilChangedBy { it >= threshold }
+                .filter { it >= threshold }
+                .collect { onOverscrolled(false) }
         }
     }
 
@@ -149,7 +161,9 @@ private class OverscrollEffectImpl(
         scope.launch { performFling(velocity) }
         scope.launch {
             if (currentOffset != Offset.Zero) {
-                onOverscrolled(currentOffset.value() / threshold, true)
+                if (currentOffset.value().absoluteValue >= threshold) {
+                    onOverscrolled(true)
+                }
                 offsetAnimatable.animateTo(
                     Offset.Zero,
                     initialVelocity = Offset(velocity.x, velocity.y),
@@ -160,7 +174,7 @@ private class OverscrollEffectImpl(
 }
 
 private class OffsetPxNode(
-    private val graphicsLayerCallback: GraphicsLayerScope.() -> Unit,
+    private val layerBlock: GraphicsLayerScope.() -> Unit,
     private val offset: Density.() -> IntOffset,
 ) : LayoutModifierNode, Modifier.Node() {
     override fun MeasureScope.measure(
@@ -173,7 +187,7 @@ private class OffsetPxNode(
             placeable.placeWithLayer(
                 offsetValue.x,
                 offsetValue.y,
-                layerBlock = graphicsLayerCallback,
+                layerBlock = layerBlock,
             )
         }
     }
