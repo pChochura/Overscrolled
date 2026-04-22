@@ -26,10 +26,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.pointlessapps.overscrolled.rememberOverscrolledEffect
-import org.jetbrains.compose.ui.tooling.preview.Preview
 import kotlin.math.absoluteValue
 
 @Composable
@@ -102,7 +102,7 @@ fun Dialog(
                             HapticFeedbackType.GestureThresholdActivate,
                         )
                     }
-                }
+                },
             ),
             flingBehavior = rememberSnapFlingBehavior(SnapLayoutInfoProvider(state)),
             contentPadding = WindowInsets.safeDrawing.asPaddingValues(),

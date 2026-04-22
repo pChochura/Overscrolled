@@ -5,11 +5,11 @@ plugins {
     alias(libs.plugins.kotlinMultiplatformLibrary)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
-    alias(libs.plugins.vanniktech.mavenPublish)
+    alias(libs.plugins.mavenPublish)
 }
 
 group = "io.github.pchochura.overscrolled"
-version = "1.0.0"
+version = "1.1.0"
 
 kotlin {
     compilerOptions {
@@ -17,9 +17,9 @@ kotlin {
     }
 
     jvm()
-    androidLibrary {
-        compileSdk = libs.versions.android.compileSdk.get().toInt()
+    android {
         namespace = group.toString()
+        compileSdk = libs.versions.sdk.compile.get().toInt()
 
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_11)

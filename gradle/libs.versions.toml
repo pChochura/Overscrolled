@@ -1,23 +1,49 @@
 [versions]
-agp = "8.13.2"
-android-compileSdk = "36"
-android-minSdk = "24"
-android-targetSdk = "36"
-androidx-activity = "1.12.1"
-androidx-lifecycle = "2.9.6"
-composeMultiplatform = "1.9.3"
-vanniktechMavenPublish = "0.35.0"
-kotlin = "2.2.21"
+# Build
+agp = "9.1.1"
+sdk-compile = "37"
+sdk-min = "26"
+sdk-target = "37"
+
+# Kotlin
+kotlin = "2.3.20"
+
+# Compose
+compose-multiplatform = "1.10.3"
+compose-multiplatform-material3 = "1.9.0"
+
+# AndroidX
+androidx-activity = "1.13.0"
+androidx-lifecycle = "2.10.0"
+
+# Misc
+maven-publish = "0.36.0"
 
 [libraries]
+# AndroidX
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
-androidx-lifecycle-runtimeCompose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "androidx-lifecycle" }
+androidx-lifecycle-viewmodel = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel", version.ref = "androidx-lifecycle" }
+androidx-lifecycle-runtime-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "androidx-lifecycle" }
+
+# Compose
+compose-mp-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "compose-multiplatform" }
+compose-mp-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose-multiplatform" }
+compose-mp-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "compose-multiplatform-material3" }
+compose-mp-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose-multiplatform" }
+compose-mp-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "compose-multiplatform" }
+compose-mp-ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.ref = "compose-multiplatform" }
+compose-mp-ui-tooling-preview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "compose-multiplatform" }
 
 [plugins]
+# Android
 androidApplication = { id = "com.android.application", version.ref = "agp" }
 androidLibrary = { id = "com.android.library", version.ref = "agp" }
-composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
-composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
-kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlinMultiplatformLibrary = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
-vanniktech-mavenPublish = { id = "com.vanniktech.maven.publish", version.ref = "vanniktechMavenPublish" }
+mavenPublish = { id = "com.vanniktech.maven.publish", version.ref = "maven-publish" }
+
+# Kotlin
+kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+
+# Compose
+composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }
