@@ -27,7 +27,6 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.math.abs
-import kotlin.math.absoluteValue
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sign
@@ -48,14 +47,92 @@ fun rememberOverscrolledEffect(
     threshold: Float,
     layerBlock: GraphicsLayerScope.(progress: Float) -> Unit,
     onOverscrolled: (finished: Boolean) -> Unit,
+) = rememberOverscrolledEffect(
+    orientation = orientation,
+    startThreshold = threshold,
+    endThreshold = threshold,
+    onOverscrolled = onOverscrolled,
+    effectNode = object : OverscrolledEffectNode {
+        private fun Offset.value() = when (orientation) {
+            Orientation.Vertical -> y
+            Orientation.Horizontal -> x
+        }
+
+        override fun node(currentOffset: () -> Offset) = OffsetPxNode(
+            layerBlock = { layerBlock(currentOffset().value() / threshold) },
+            offset = { currentOffset().round() },
+        )
+    },
+)
+
+@Composable
+fun rememberHorizonalOverscrolledEffect(
+    threshold: Float,
+    onOverscrolled: (finished: Boolean) -> Unit,
+    effectNode: OverscrolledEffectNode? = null,
+) = rememberHorizonalOverscrolledEffect(
+    startThreshold = threshold,
+    endThreshold = threshold,
+    onOverscrolled = onOverscrolled,
+    effectNode = effectNode,
+)
+
+@Composable
+fun rememberHorizonalOverscrolledEffect(
+    startThreshold: Float,
+    endThreshold: Float,
+    onOverscrolled: (finished: Boolean) -> Unit,
+    effectNode: OverscrolledEffectNode? = null,
+) = rememberOverscrolledEffect(
+    orientation = Orientation.Horizontal,
+    startThreshold = startThreshold,
+    endThreshold = endThreshold,
+    onOverscrolled = onOverscrolled,
+    effectNode = effectNode,
+)
+
+@Composable
+fun rememberVerticalOverscrolledEffect(
+    threshold: Float,
+    onOverscrolled: (finished: Boolean) -> Unit,
+    effectNode: OverscrolledEffectNode? = null,
+) = rememberVerticalOverscrolledEffect(
+    startThreshold = threshold,
+    endThreshold = threshold,
+    onOverscrolled = onOverscrolled,
+    effectNode = effectNode,
+)
+
+@Composable
+fun rememberVerticalOverscrolledEffect(
+    startThreshold: Float,
+    endThreshold: Float,
+    onOverscrolled: (finished: Boolean) -> Unit,
+    effectNode: OverscrolledEffectNode? = null,
+) = rememberOverscrolledEffect(
+    orientation = Orientation.Vertical,
+    startThreshold = startThreshold,
+    endThreshold = endThreshold,
+    onOverscrolled = onOverscrolled,
+    effectNode = effectNode,
+)
+
+@Composable
+private fun rememberOverscrolledEffect(
+    orientation: Orientation,
+    startThreshold: Float,
+    endThreshold: Float,
+    onOverscrolled: (finished: Boolean) -> Unit,
+    effectNode: OverscrolledEffectNode? = null,
 ): OverscrollEffect {
     val scope = rememberCoroutineScope()
 
     return remember {
         OverscrollEffectImpl(
+            effectNode = effectNode ?: NoOpEffectNode,
             orientation = orientation,
-            threshold = threshold,
-            layerBlock = layerBlock,
+            startThreshold = startThreshold,
+            endThreshold = endThreshold,
             onOverscrolled = onOverscrolled,
             scope = scope,
         )
@@ -63,9 +140,10 @@ fun rememberOverscrolledEffect(
 }
 
 private class OverscrollEffectImpl(
+    effectNode: OverscrolledEffectNode,
     private val orientation: Orientation,
-    private val threshold: Float,
-    private val layerBlock: GraphicsLayerScope.(progress: Float) -> Unit,
+    private val startThreshold: Float,
+    private val endThreshold: Float,
     private val onOverscrolled: (finished: Boolean) -> Unit,
     private val scope: CoroutineScope,
 ) : OverscrollEffect {
@@ -77,17 +155,14 @@ private class OverscrollEffectImpl(
     override val isInProgress: Boolean
         get() = currentOffset != Offset.Zero
 
-    override val node = OffsetPxNode(
-        layerBlock = { layerBlock(currentOffset.value() / threshold) },
-        offset = { offsetAnimatable.value.round() },
-    )
+    override val node = effectNode.node(::currentOffset)
 
     init {
         scope.launch {
             snapshotFlow(offsetAnimatable::value)
-                .map { it.value().absoluteValue }
-                .distinctUntilChangedBy { it >= threshold }
-                .filter { it >= threshold }
+                .map { it.value() }
+                .distinctUntilChangedBy { it <= -endThreshold || it >= startThreshold }
+                .filter { it <= -endThreshold || it >= startThreshold }
                 .collect { onOverscrolled(false) }
         }
     }
@@ -161,7 +236,7 @@ private class OverscrollEffectImpl(
         scope.launch { performFling(velocity) }
         scope.launch {
             if (currentOffset != Offset.Zero) {
-                if (currentOffset.value().absoluteValue >= threshold) {
+                if (currentOffset.value().let { it <= -endThreshold || it >= startThreshold }) {
                     onOverscrolled(true)
                 }
                 offsetAnimatable.animateTo(
@@ -191,4 +266,12 @@ private class OffsetPxNode(
             )
         }
     }
+}
+
+private object NoOpEffectNode : OverscrolledEffectNode {
+    override fun node(currentOffset: () -> Offset) = object : Modifier.Node() {}
+}
+
+interface OverscrolledEffectNode {
+    fun node(currentOffset: () -> Offset): Modifier.Node
 }
