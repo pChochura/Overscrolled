@@ -40,7 +40,13 @@ import kotlin.math.sign
  * direction the content is being overscrolled.
  * The [onOverscrolled] callback is invoked once the threshold is met and it contains a parameter
  * that indicates whether the user has lifted the finger.
+ *
+ * @deprecated Use rememberHorizonalOverscrolledEffect or rememberVerticalOverscrolledEffect instead.
  */
+@Deprecated(
+    message = "Use rememberHorizonalOverscrolledEffect or rememberVerticalOverscrolledEffect instead.",
+    level = DeprecationLevel.WARNING
+)
 @Composable
 fun rememberOverscrolledEffect(
     orientation: Orientation,
@@ -65,6 +71,15 @@ fun rememberOverscrolledEffect(
     },
 )
 
+/**
+ * Remembers a horizontal [OverscrollEffect] that moves the content in the same direction as the
+ * scroll happens with a dampening force.
+ *
+ * @param threshold The threshold in pixels after which the [onOverscrolled] callback is invoked.
+ * @param onOverscrolled The callback invoked once the threshold is met and it contains a parameter
+ * that indicates whether the user has lifted the finger.
+ * @param effectNode The [OverscrolledEffectNode] that defines how the content is transformed.
+ */
 @Composable
 fun rememberHorizonalOverscrolledEffect(
     threshold: Float,
@@ -77,6 +92,18 @@ fun rememberHorizonalOverscrolledEffect(
     effectNode = effectNode,
 )
 
+/**
+ * Remembers a horizontal [OverscrollEffect] that moves the content in the same direction as the
+ * scroll happens with a dampening force.
+ *
+ * @param startThreshold The threshold in pixels for the start side after which the [onOverscrolled]
+ * callback is invoked.
+ * @param endThreshold The threshold in pixels for the end side after which the [onOverscrolled]
+ * callback is invoked.
+ * @param onOverscrolled The callback invoked once the threshold is met and it contains a parameter
+ * that indicates whether the user has lifted the finger.
+ * @param effectNode The [OverscrolledEffectNode] that defines how the content is transformed.
+ */
 @Composable
 fun rememberHorizonalOverscrolledEffect(
     startThreshold: Float,
@@ -91,6 +118,15 @@ fun rememberHorizonalOverscrolledEffect(
     effectNode = effectNode,
 )
 
+/**
+ * Remembers a vertical [OverscrollEffect] that moves the content in the same direction as the
+ * scroll happens with a dampening force.
+ *
+ * @param threshold The threshold in pixels after which the [onOverscrolled] callback is invoked.
+ * @param onOverscrolled The callback invoked once the threshold is met and it contains a parameter
+ * that indicates whether the user has lifted the finger.
+ * @param effectNode The [OverscrolledEffectNode] that defines how the content is transformed.
+ */
 @Composable
 fun rememberVerticalOverscrolledEffect(
     threshold: Float,
@@ -103,6 +139,18 @@ fun rememberVerticalOverscrolledEffect(
     effectNode = effectNode,
 )
 
+/**
+ * Remembers a vertical [OverscrollEffect] that moves the content in the same direction as the
+ * scroll happens with a dampening force.
+ *
+ * @param startThreshold The threshold in pixels for the start side after which the [onOverscrolled]
+ * callback is invoked.
+ * @param endThreshold The threshold in pixels for the end side after which the [onOverscrolled]
+ * callback is invoked.
+ * @param onOverscrolled The callback invoked once the threshold is met and it contains a parameter
+ * that indicates whether the user has lifted the finger.
+ * @param effectNode The [OverscrolledEffectNode] that defines how the content is transformed.
+ */
 @Composable
 fun rememberVerticalOverscrolledEffect(
     startThreshold: Float,
@@ -117,6 +165,15 @@ fun rememberVerticalOverscrolledEffect(
     effectNode = effectNode,
 )
 
+/**
+ * Internal implementation of the overscrolled effect.
+ *
+ * @param orientation The orientation of the scroll.
+ * @param startThreshold The threshold in pixels for the start side.
+ * @param endThreshold The threshold in pixels for the end side.
+ * @param onOverscrolled The callback invoked once the threshold is met.
+ * @param effectNode The [OverscrolledEffectNode] that defines how the content is transformed.
+ */
 @Composable
 private fun rememberOverscrolledEffect(
     orientation: Orientation,
@@ -272,6 +329,15 @@ private object NoOpEffectNode : OverscrolledEffectNode {
     override fun node(currentOffset: () -> Offset) = object : Modifier.Node() {}
 }
 
+/**
+ * An interface that allows the caller to define exactly how the content is transformed when it is
+ * being overscrolled.
+ */
 interface OverscrolledEffectNode {
+    /**
+     * Returns a [Modifier.Node] that applies the overscroll transformation.
+     *
+     * @param currentOffset A provider for the current overscroll offset.
+     */
     fun node(currentOffset: () -> Offset): Modifier.Node
 }
