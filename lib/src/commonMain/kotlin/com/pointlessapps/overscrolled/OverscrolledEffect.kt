@@ -10,21 +10,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.layout.Measurable
-import androidx.compose.ui.layout.MeasureResult
-import androidx.compose.ui.layout.MeasureScope
-import androidx.compose.ui.node.LayoutModifierNode
-import androidx.compose.ui.unit.Constraints
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
-import androidx.compose.ui.unit.round
+import androidx.compose.ui.util.fastCoerceIn
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.max
@@ -32,46 +25,6 @@ import kotlin.math.min
 import kotlin.math.sign
 
 /**
- * An [OverscrollEffect] implementation that moves the content in the same direction as the scroll
- * happens with a dampening force.
- *
- * It also exposes a [layerBlock] that allows the caller to control exactly how to style the content
- * when it is being overscrolled. The provided [layerBlock(progress)] is signed to inform in which
- * direction the content is being overscrolled.
- * The [onOverscrolled] callback is invoked once the threshold is met and it contains a parameter
- * that indicates whether the user has lifted the finger.
- *
- * @deprecated Use rememberHorizonalOverscrolledEffect or rememberVerticalOverscrolledEffect instead.
- */
-@Deprecated(
-    message = "Use rememberHorizonalOverscrolledEffect or rememberVerticalOverscrolledEffect instead.",
-    level = DeprecationLevel.WARNING
-)
-@Composable
-fun rememberOverscrolledEffect(
-    orientation: Orientation,
-    threshold: Float,
-    layerBlock: GraphicsLayerScope.(progress: Float) -> Unit,
-    onOverscrolled: (finished: Boolean) -> Unit,
-) = rememberOverscrolledEffect(
-    orientation = orientation,
-    startThreshold = threshold,
-    endThreshold = threshold,
-    onOverscrolled = onOverscrolled,
-    effectNode = object : OverscrolledEffectNode {
-        private fun Offset.value() = when (orientation) {
-            Orientation.Vertical -> y
-            Orientation.Horizontal -> x
-        }
-
-        override fun node(currentOffset: () -> Offset) = OffsetPxNode(
-            layerBlock = { layerBlock(currentOffset().value() / threshold) },
-            offset = { currentOffset().round() },
-        )
-    },
-)
-
-/**
  * Remembers a horizontal [OverscrollEffect] that moves the content in the same direction as the
  * scroll happens with a dampening force.
  *
@@ -84,11 +37,13 @@ fun rememberOverscrolledEffect(
 fun rememberHorizonalOverscrolledEffect(
     threshold: Float,
     onOverscrolled: (finished: Boolean) -> Unit,
+    onProgressChanged: (progress: Float) -> Unit = {},
     effectNode: OverscrolledEffectNode? = null,
 ) = rememberHorizonalOverscrolledEffect(
     startThreshold = threshold,
     endThreshold = threshold,
     onOverscrolled = onOverscrolled,
+    onProgressChanged = onProgressChanged,
     effectNode = effectNode,
 )
 
@@ -109,12 +64,14 @@ fun rememberHorizonalOverscrolledEffect(
     startThreshold: Float,
     endThreshold: Float,
     onOverscrolled: (finished: Boolean) -> Unit,
+    onProgressChanged: (progress: Float) -> Unit = {},
     effectNode: OverscrolledEffectNode? = null,
 ) = rememberOverscrolledEffect(
     orientation = Orientation.Horizontal,
     startThreshold = startThreshold,
     endThreshold = endThreshold,
     onOverscrolled = onOverscrolled,
+    onProgressChanged = onProgressChanged,
     effectNode = effectNode,
 )
 
@@ -131,11 +88,13 @@ fun rememberHorizonalOverscrolledEffect(
 fun rememberVerticalOverscrolledEffect(
     threshold: Float,
     onOverscrolled: (finished: Boolean) -> Unit,
+    onProgressChanged: (progress: Float) -> Unit = {},
     effectNode: OverscrolledEffectNode? = null,
 ) = rememberVerticalOverscrolledEffect(
     startThreshold = threshold,
     endThreshold = threshold,
     onOverscrolled = onOverscrolled,
+    onProgressChanged = onProgressChanged,
     effectNode = effectNode,
 )
 
@@ -156,12 +115,14 @@ fun rememberVerticalOverscrolledEffect(
     startThreshold: Float,
     endThreshold: Float,
     onOverscrolled: (finished: Boolean) -> Unit,
+    onProgressChanged: (progress: Float) -> Unit = {},
     effectNode: OverscrolledEffectNode? = null,
 ) = rememberOverscrolledEffect(
     orientation = Orientation.Vertical,
     startThreshold = startThreshold,
     endThreshold = endThreshold,
     onOverscrolled = onOverscrolled,
+    onProgressChanged = onProgressChanged,
     effectNode = effectNode,
 )
 
@@ -180,6 +141,7 @@ private fun rememberOverscrolledEffect(
     startThreshold: Float,
     endThreshold: Float,
     onOverscrolled: (finished: Boolean) -> Unit,
+    onProgressChanged: (progress: Float) -> Unit,
     effectNode: OverscrolledEffectNode? = null,
 ): OverscrollEffect {
     val scope = rememberCoroutineScope()
@@ -191,6 +153,7 @@ private fun rememberOverscrolledEffect(
             startThreshold = startThreshold,
             endThreshold = endThreshold,
             onOverscrolled = onOverscrolled,
+            onProgressChanged = onProgressChanged,
             scope = scope,
         )
     }
@@ -202,6 +165,7 @@ private class OverscrollEffectImpl(
     private val startThreshold: Float,
     private val endThreshold: Float,
     private val onOverscrolled: (finished: Boolean) -> Unit,
+    private val onProgressChanged: (progress: Float) -> Unit,
     private val scope: CoroutineScope,
 ) : OverscrollEffect {
 
@@ -212,14 +176,25 @@ private class OverscrollEffectImpl(
     override val isInProgress: Boolean
         get() = currentOffset != Offset.Zero
 
-    override val node = effectNode.node(::currentOffset)
+    override val node = effectNode.node {
+        OverscrolledProgress(
+            absoluteOffset = currentOffset.value(),
+            progress = currentOffset.calculateProgress(),
+            direction = if (currentOffset.value() < 0f) {
+                OverscrolledProgress.Direction.FromStart
+            } else {
+                OverscrolledProgress.Direction.FromEnd
+            },
+        )
+    }
 
     init {
         scope.launch {
             snapshotFlow(offsetAnimatable::value)
-                .map { it.value() }
-                .distinctUntilChangedBy { it <= -endThreshold || it >= startThreshold }
-                .filter { it <= -endThreshold || it >= startThreshold }
+                .map { it.calculateProgress() }
+                .distinctUntilChanged()
+                .onEach { onProgressChanged(it) }
+                .filter { it >= 1f }
                 .collect { onOverscrolled(false) }
         }
     }
@@ -262,8 +237,7 @@ private class OverscrollEffectImpl(
 
         val unconsumed = remainingDelta - consumedByContent
         if (unconsumed != Offset.Zero) {
-            val dampenedUnconsumed = Offset(dampen(unconsumed.x), dampen(unconsumed.y))
-            scope.launch { offsetAnimatable.snapTo(currentOffset + dampenedUnconsumed) }
+            scope.launch { offsetAnimatable.snapTo(currentOffset + unconsumed) }
         }
 
         return consumedByOverscroll + consumedByContent + unconsumed
@@ -282,7 +256,12 @@ private class OverscrollEffectImpl(
         Orientation.Horizontal -> x
     }
 
-    private fun dampen(value: Float, multiplier: Float = 0.3f) = value * multiplier
+    private fun Offset.calculateProgress() = value().let {
+        (if (it < 0f) -it / endThreshold else it / startThreshold).fastCoerceIn(
+            minimumValue = 0f,
+            maximumValue = 1f,
+        )
+    }
 
     override suspend fun applyToFling(
         velocity: Velocity,
@@ -305,39 +284,37 @@ private class OverscrollEffectImpl(
     }
 }
 
-private class OffsetPxNode(
-    private val layerBlock: GraphicsLayerScope.() -> Unit,
-    private val offset: Density.() -> IntOffset,
-) : LayoutModifierNode, Modifier.Node() {
-    override fun MeasureScope.measure(
-        measurable: Measurable,
-        constraints: Constraints,
-    ): MeasureResult {
-        val placeable = measurable.measure(constraints)
-        return layout(placeable.width, placeable.height) {
-            val offsetValue = offset()
-            placeable.placeWithLayer(
-                offsetValue.x,
-                offsetValue.y,
-                layerBlock = layerBlock,
-            )
-        }
-    }
+data class OverscrolledProgress(
+    val absoluteOffset: Float,
+    val progress: Float,
+    val direction: Direction,
+) {
+    enum class Direction { FromStart, FromEnd }
 }
 
 private object NoOpEffectNode : OverscrolledEffectNode {
-    override fun node(currentOffset: () -> Offset) = object : Modifier.Node() {}
+    override fun node(currentProgress: () -> OverscrolledProgress) = object : Modifier.Node() {}
 }
 
 /**
  * An interface that allows the caller to define exactly how the content is transformed when it is
  * being overscrolled.
  */
-interface OverscrolledEffectNode {
+fun interface OverscrolledEffectNode {
     /**
      * Returns a [Modifier.Node] that applies the overscroll transformation.
      *
-     * @param currentOffset A provider for the current overscroll offset.
+     * @param currentProgress A provider for the current overscroll progress (from 0f to 1f).
      */
-    fun node(currentOffset: () -> Offset): Modifier.Node
+    fun node(currentProgress: () -> OverscrolledProgress): Modifier.Node
 }
+
+/**
+ * Creates an [OverscrolledEffectNode] with the provided [nodeBuilder].
+ *
+ * @param nodeBuilder A builder that returns a [Modifier.Node] that applies the overscroll
+ * transformation.
+ */
+fun createOverscrolledEffectNode(
+    nodeBuilder: (currentProgress: () -> OverscrolledProgress) -> Modifier.Node,
+) = OverscrolledEffectNode { currentProgress -> nodeBuilder(currentProgress) }

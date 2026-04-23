@@ -21,7 +21,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -34,9 +33,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import com.pointlessapps.overscrolled.OverscrolledEffectNode
+import com.pointlessapps.overscrolled.OverscrolledProgress.Direction.FromStart
+import com.pointlessapps.overscrolled.createOverscrolledEffectNode
 import com.pointlessapps.overscrolled.rememberHorizonalOverscrolledEffect
-import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
 
 @Composable
@@ -65,8 +64,8 @@ fun App() {
     }
 }
 
-private const val startThreshold = 50f
-private const val endThreshold = 200f
+private const val startThreshold = 300f
+private const val endThreshold = 500f
 
 @Composable
 private fun Dialog(
@@ -104,6 +103,9 @@ private fun Dialog(
                         )
                     }
                 },
+                onProgressChanged = { progress ->
+                    // Do something with the progress
+                },
                 effectNode = effectNode,
             ),
             flingBehavior = rememberSnapFlingBehavior(SnapLayoutInfoProvider(state)),
@@ -123,33 +125,28 @@ private fun Dialog(
     }
 }
 
-private val effectNode = object : OverscrolledEffectNode {
-    override fun node(currentOffset: () -> Offset): Modifier.Node {
-        return object : Modifier.Node(), LayoutModifierNode {
-            override fun MeasureScope.measure(
-                measurable: Measurable,
-                constraints: Constraints,
-            ): MeasureResult {
-                val placeable = measurable.measure(constraints)
-                return layout(placeable.width, placeable.height) {
-                    val offsetValue = currentOffset()
-                    val threshold =
-                        if (offsetValue.x < 0) endThreshold else startThreshold
-                    val progress = offsetValue.x / threshold
-                    placeable.placeWithLayer(
-                        offsetValue.x.roundToInt(),
-                        offsetValue.y.roundToInt(),
-                        layerBlock = {
-                            alpha = (1 - progress.absoluteValue).coerceAtLeast(0.3f)
-                            scaleX = 1 - (0.05f * progress.absoluteValue)
-                            scaleY = 1 - (0.05f * progress.absoluteValue)
-                            transformOrigin = TransformOrigin(
-                                pivotFractionX = if (progress > 0) 1f else 0f,
-                                pivotFractionY = 0.5f,
-                            )
-                        },
-                    )
-                }
+private val effectNode = createOverscrolledEffectNode { currentProgress ->
+    object : Modifier.Node(), LayoutModifierNode {
+        override fun MeasureScope.measure(
+            measurable: Measurable,
+            constraints: Constraints,
+        ): MeasureResult {
+            val placeable = measurable.measure(constraints)
+            return layout(placeable.width, placeable.height) {
+                val (offset, progress, side) = currentProgress()
+                placeable.placeWithLayer(
+                    (offset * 0.3f).roundToInt(),
+                    0,
+                    layerBlock = {
+                        alpha = (1 - progress).coerceAtLeast(0.3f)
+                        scaleX = 1 - (0.05f * progress)
+                        scaleY = 1 - (0.05f * progress)
+                        transformOrigin = TransformOrigin(
+                            pivotFractionX = if (side == FromStart) 1f else 0f,
+                            pivotFractionY = 0.5f,
+                        )
+                    },
+                )
             }
         }
     }

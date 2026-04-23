@@ -52,6 +52,9 @@ LazyRow(
                 hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
                 onDismissRequest()
             }
+        },
+        onProgressChanged = { progress ->
+            // Callback invoked whenever the overscroll progress changes (from 0.0 to 1.0)
         }
     ),
 ) {
@@ -74,36 +77,23 @@ LazyRow(
         onOverscrolled = { finished -> 
             /* ... */ 
         },
-        effectNode = remember(startThreshold, endThreshold) {
-            object : OverscrolledEffectNode {
-                override fun node(currentOffset: () -> Offset): Modifier.Node {
-                    return object : Modifier.Node(), LayoutModifierNode {
-                        override fun MeasureScope.measure(
-                            measurable: Measurable,
-                            constraints: Constraints,
-                        ): MeasureResult {
-                            val placeable = measurable.measure(constraints)
-                            return layout(placeable.width, placeable.height) {
-                                val offsetValue = currentOffset()
-                                val threshold =
-                                    if (offsetValue.x < 0) endThreshold else startThreshold
-                                val progress = offsetValue.x / threshold
-                                placeable.placeWithLayer(
-                                    offsetValue.x.roundToInt(),
-                                    offsetValue.y.roundToInt(),
-                                    layerBlock = {
-                                        // This callback is invoked on every frame with the context of `GraphicsLayerScope`
-                                        // which can be altered depending on the progress of the overscroll.
-                                        alpha = (1 - progress.absoluteValue).coerceAtLeast(0.3f)
-                                        scaleX = 1 - (0.05f * progress.absoluteValue)
-                                        scaleY = 1 - (0.05f * progress.absoluteValue)
-                                        transformOrigin = TransformOrigin(
-                                            pivotFractionX = if (progress > 0) 1f else 0f,
-                                            pivotFractionY = 0.5f,
-                                        )
-                                    },
-                                )
-                            }
+        effectNode = createOverscrolledEffectNode { currentProgress ->
+            object : Modifier.Node(), LayoutModifierNode {
+                override fun MeasureScope.measure(
+                    measurable: Measurable,
+                    constraints: Constraints,
+                ): MeasureResult {
+                    val placeable = measurable.measure(constraints)
+                    return layout(placeable.width, placeable.height) {
+                        val (offset, progress, direction) = currentProgress()
+                        placeable.placeWithLayer(offset.roundToInt(), 0) {
+                            alpha = (1 - progress).coerceAtLeast(0.3f)
+                            scaleX = 1 - (0.05f * progress)
+                            scaleY = 1 - (0.05f * progress)
+                            transformOrigin = TransformOrigin(
+                                pivotFractionX = if (direction == OverscrolledProgress.Direction.FromStart) 1f else 0f,
+                                pivotFractionY = 0.5f,
+                            )
                         }
                     }
                 }

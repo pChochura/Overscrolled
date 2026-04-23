@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2024-05-20
+
+### ⚠️ Breaking Changes
+- **OverscrolledEffectNode**: The `node` method now receives `currentProgress: () -> OverscrolledProgress` instead of `currentOffset: () -> Offset`.
+- **OverscrolledProgress**: Introduced a new data class that holds `absoluteOffset`, `progress` (0..1), and `direction` (`FromStart` or `FromEnd`).
+- **createOverscrolledEffectNode**: Updated to accept a lambda with `currentProgress: () -> OverscrolledProgress`.
+
+### 🚀 Features
+- **onProgressChanged**: Added a new optional callback to `rememberHorizonalOverscrolledEffect` and `rememberVerticalOverscrolledEffect` to observe overscroll progress changes.
+
 ## [1.1.0] - 2023-10-27
 
 ### 🚀 Features
