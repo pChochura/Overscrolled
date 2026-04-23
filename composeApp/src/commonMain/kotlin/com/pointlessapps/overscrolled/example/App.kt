@@ -33,7 +33,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import com.pointlessapps.overscrolled.OverscrolledProgress.Direction.FromStart
+import com.pointlessapps.overscrolled.Direction.FromStart
 import com.pointlessapps.overscrolled.createOverscrolledEffectNode
 import com.pointlessapps.overscrolled.rememberHorizonalOverscrolledEffect
 import kotlin.math.roundToInt
@@ -91,7 +91,7 @@ private fun Dialog(
             overscrollEffect = rememberHorizonalOverscrolledEffect(
                 startThreshold = startThreshold,
                 endThreshold = endThreshold,
-                onOverscrolled = { finished ->
+                onOverscrolled = { finished, _ ->
                     if (finished) {
                         hapticFeedback.performHapticFeedback(
                             HapticFeedbackType.Confirm,

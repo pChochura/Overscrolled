@@ -13,6 +13,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.util.fastCoerceIn
+import com.pointlessapps.overscrolled.Direction.FromEnd
+import com.pointlessapps.overscrolled.Direction.FromStart
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
@@ -20,6 +22,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.absoluteValue
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sign
@@ -36,7 +39,7 @@ import kotlin.math.sign
 @Composable
 fun rememberHorizonalOverscrolledEffect(
     threshold: Float,
-    onOverscrolled: (finished: Boolean) -> Unit,
+    onOverscrolled: (finished: Boolean, direction: Direction) -> Unit,
     onProgressChanged: (progress: Float) -> Unit = {},
     effectNode: OverscrolledEffectNode? = null,
 ) = rememberHorizonalOverscrolledEffect(
@@ -63,7 +66,7 @@ fun rememberHorizonalOverscrolledEffect(
 fun rememberHorizonalOverscrolledEffect(
     startThreshold: Float,
     endThreshold: Float,
-    onOverscrolled: (finished: Boolean) -> Unit,
+    onOverscrolled: (finished: Boolean, direction: Direction) -> Unit,
     onProgressChanged: (progress: Float) -> Unit = {},
     effectNode: OverscrolledEffectNode? = null,
 ) = rememberOverscrolledEffect(
@@ -87,7 +90,7 @@ fun rememberHorizonalOverscrolledEffect(
 @Composable
 fun rememberVerticalOverscrolledEffect(
     threshold: Float,
-    onOverscrolled: (finished: Boolean) -> Unit,
+    onOverscrolled: (finished: Boolean, direction: Direction) -> Unit,
     onProgressChanged: (progress: Float) -> Unit = {},
     effectNode: OverscrolledEffectNode? = null,
 ) = rememberVerticalOverscrolledEffect(
@@ -114,7 +117,7 @@ fun rememberVerticalOverscrolledEffect(
 fun rememberVerticalOverscrolledEffect(
     startThreshold: Float,
     endThreshold: Float,
-    onOverscrolled: (finished: Boolean) -> Unit,
+    onOverscrolled: (finished: Boolean, direction: Direction) -> Unit,
     onProgressChanged: (progress: Float) -> Unit = {},
     effectNode: OverscrolledEffectNode? = null,
 ) = rememberOverscrolledEffect(
@@ -140,7 +143,7 @@ private fun rememberOverscrolledEffect(
     orientation: Orientation,
     startThreshold: Float,
     endThreshold: Float,
-    onOverscrolled: (finished: Boolean) -> Unit,
+    onOverscrolled: (finished: Boolean, direction: Direction) -> Unit,
     onProgressChanged: (progress: Float) -> Unit,
     effectNode: OverscrolledEffectNode? = null,
 ): OverscrollEffect {
@@ -164,7 +167,7 @@ private class OverscrollEffectImpl(
     private val orientation: Orientation,
     private val startThreshold: Float,
     private val endThreshold: Float,
-    private val onOverscrolled: (finished: Boolean) -> Unit,
+    private val onOverscrolled: (finished: Boolean, direction: Direction) -> Unit,
     private val onProgressChanged: (progress: Float) -> Unit,
     private val scope: CoroutineScope,
 ) : OverscrollEffect {
@@ -179,12 +182,8 @@ private class OverscrollEffectImpl(
     override val node = effectNode.node {
         OverscrolledProgress(
             absoluteOffset = currentOffset.value(),
-            progress = currentOffset.calculateProgress(),
-            direction = if (currentOffset.value() < 0f) {
-                OverscrolledProgress.Direction.FromStart
-            } else {
-                OverscrolledProgress.Direction.FromEnd
-            },
+            progress = currentOffset.calculateProgress().absoluteValue,
+            direction = if (currentOffset.value() < 0f) FromEnd else FromStart,
         )
     }
 
@@ -194,8 +193,8 @@ private class OverscrollEffectImpl(
                 .map { it.calculateProgress() }
                 .distinctUntilChanged()
                 .onEach { onProgressChanged(it) }
-                .filter { it >= 1f }
-                .collect { onOverscrolled(false) }
+                .filter { it.absoluteValue >= 1f }
+                .collect { onOverscrolled(false, if (it < 0f) FromEnd else FromStart) }
         }
     }
 
@@ -257,8 +256,8 @@ private class OverscrollEffectImpl(
     }
 
     private fun Offset.calculateProgress() = value().let {
-        (if (it < 0f) -it / endThreshold else it / startThreshold).fastCoerceIn(
-            minimumValue = 0f,
+        (if (it < 0f) it / endThreshold else it / startThreshold).fastCoerceIn(
+            minimumValue = -1f,
             maximumValue = 1f,
         )
     }
@@ -272,8 +271,9 @@ private class OverscrollEffectImpl(
         scope.launch { performFling(velocity) }
         scope.launch {
             if (currentOffset != Offset.Zero) {
-                if (currentOffset.value().let { it <= -endThreshold || it >= startThreshold }) {
-                    onOverscrolled(true)
+                val offsetValue = currentOffset.value()
+                if (offsetValue.let { it <= -endThreshold || it >= startThreshold }) {
+                    onOverscrolled(true, if (offsetValue < 0f) FromEnd else FromStart)
                 }
                 offsetAnimatable.animateTo(
                     Offset.Zero,
@@ -288,9 +288,9 @@ data class OverscrolledProgress(
     val absoluteOffset: Float,
     val progress: Float,
     val direction: Direction,
-) {
-    enum class Direction { FromStart, FromEnd }
-}
+)
+
+enum class Direction { FromStart, FromEnd }
 
 private object NoOpEffectNode : OverscrolledEffectNode {
     override fun node(currentProgress: () -> OverscrolledProgress) = object : Modifier.Node() {}

@@ -47,7 +47,8 @@ val hapticFeedback = LocalHapticFeedback.current
 LazyRow(
     overscrollEffect = rememberHorizonalOverscrolledEffect(
         threshold = 100f,
-        onOverscrolled = { finished ->
+        onOverscrolled = { finished, direction ->
+            // direction provides information from which side the overscroll happened: FromStart or FromEnd
             if (finished) {
                 hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
                 onDismissRequest()
@@ -74,7 +75,7 @@ LazyRow(
     overscrollEffect = rememberHorizonalOverscrolledEffect(
         startThreshold = startThreshold,
         endThreshold = endThreshold,
-        onOverscrolled = { finished -> 
+        onOverscrolled = { finished, direction -> 
             /* ... */ 
         },
         effectNode = createOverscrolledEffectNode { currentProgress ->
