@@ -12,8 +12,8 @@ android {
         applicationId = "com.pointlessapps.overscrolled.android.example"
         minSdk = libs.versions.sdk.min.get().toInt()
         targetSdk = libs.versions.sdk.target.get().toInt()
-        versionCode = 3
-        versionName = "1.2.1"
+        versionCode = 4
+        versionName = "1.2.2"
     }
     packaging {
         resources {

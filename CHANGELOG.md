@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.2] - 2026-04-24
+
+### 🛠 Improvements
+- **PlatformDefaultEffectNode**: Replaced the `NoOpEffectNode` with a `PlatformDefaultEffectNode` class that delegates the overscroll effect to the platform specific implementation provided by `rememberOverscrollEffect`, when omitting the `nodeEffect` parameter.
+
 ## [1.2.1] - 2026-04-23
 
 ### ⚠️ Breaking Changes
