@@ -1,6 +1,8 @@
 package com.pointlessapps.overscrolled
 
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.Velocity
 
 /**
  * Creates an [OverscrolledEffectNode] with the provided [nodeBuilder].
@@ -23,4 +25,7 @@ fun interface OverscrolledEffectNode {
      * @param currentProgress A provider for the current overscroll progress (from 0f to 1f).
      */
     fun node(currentProgress: () -> OverscrolledProgress): Modifier.Node
+
+    fun onApplyToFling(velocity: Velocity) = Unit
+    fun onApplyToScroll(delta: Offset) = Unit
 }

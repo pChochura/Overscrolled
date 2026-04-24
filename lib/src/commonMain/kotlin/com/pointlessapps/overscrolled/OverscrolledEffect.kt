@@ -2,10 +2,16 @@ package com.pointlessapps.overscrolled
 
 import androidx.compose.foundation.OverscrollEffect
 import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.rememberOverscrollEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.unit.Velocity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 /**
  * Remembers a horizontal [OverscrollEffect] that moves the content in the same direction as the
@@ -128,10 +134,14 @@ private fun rememberOverscrolledEffect(
     effectNode: OverscrolledEffectNode? = null,
 ): OverscrollEffect {
     val scope = rememberCoroutineScope()
+    val defaultEffect = rememberOverscrollEffect()
 
-    return remember {
+    return remember(defaultEffect) {
         OverscrollEffectImpl(
-            effectNode = effectNode ?: NoOpEffectNode,
+            effectNode = effectNode ?: PlatformDefaultEffectNode(
+                overscrollEffect = defaultEffect,
+                coroutineScope = scope,
+            ),
             orientation = orientation,
             startThreshold = startThreshold,
             endThreshold = endThreshold,
@@ -142,6 +152,20 @@ private fun rememberOverscrolledEffect(
     }
 }
 
-private object NoOpEffectNode : OverscrolledEffectNode {
-    override fun node(currentProgress: () -> OverscrolledProgress) = object : Modifier.Node() {}
+private data class PlatformDefaultEffectNode(
+    private val overscrollEffect: OverscrollEffect?,
+    private val coroutineScope: CoroutineScope,
+) : OverscrolledEffectNode {
+    override fun node(currentProgress: () -> OverscrolledProgress) =
+        overscrollEffect?.node as? Modifier.Node ?: object : Modifier.Node() {}
+
+    override fun onApplyToScroll(delta: Offset) {
+        overscrollEffect?.applyToScroll(delta, NestedScrollSource.UserInput) { it - delta }
+    }
+
+    override fun onApplyToFling(velocity: Velocity) {
+        coroutineScope.launch {
+            overscrollEffect?.applyToFling(velocity) { Velocity.Zero }
+        }
+    }
 }

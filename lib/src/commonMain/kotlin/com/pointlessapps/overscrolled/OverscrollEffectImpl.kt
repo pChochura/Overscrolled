@@ -9,6 +9,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.util.fastCoerceIn
+import com.pointlessapps.overscrolled.Direction.FromEnd
+import com.pointlessapps.overscrolled.Direction.FromStart
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
@@ -22,7 +24,7 @@ import kotlin.math.min
 import kotlin.math.sign
 
 internal class OverscrollEffectImpl(
-    effectNode: OverscrolledEffectNode,
+    private val effectNode: OverscrolledEffectNode,
     private val orientation: Orientation,
     private val startThreshold: Float,
     private val endThreshold: Float,
@@ -42,15 +44,11 @@ internal class OverscrollEffectImpl(
         OverscrolledProgress(
             absoluteOffset = currentOffset.value(orientation),
             progress = currentOffset.calculateProgress(
-                orientation,
-                startThreshold,
-                endThreshold,
+                orientation = orientation,
+                startThreshold = startThreshold,
+                endThreshold = endThreshold,
             ).absoluteValue,
-            direction = if (currentOffset.value(orientation) < 0f) {
-                Direction.FromEnd
-            } else {
-                Direction.FromStart
-            },
+            direction = if (currentOffset.value(orientation) < 0f) FromEnd else FromStart,
         )
     }
 
@@ -61,12 +59,7 @@ internal class OverscrollEffectImpl(
                 .distinctUntilChanged()
                 .onEach { onProgressChanged(it) }
                 .filter { it.absoluteValue >= 1f }
-                .collect {
-                    onOverscrolled(
-                        false,
-                        if (it < 0f) Direction.FromEnd else Direction.FromStart,
-                    )
-                }
+                .collect { onOverscrolled(false, if (it < 0f) FromEnd else FromStart) }
         }
     }
 
@@ -78,6 +71,8 @@ internal class OverscrollEffectImpl(
         if (source != NestedScrollSource.UserInput) {
             return performScroll(delta)
         }
+
+        effectNode.onApplyToScroll(delta)
 
         // 1. First, try to scroll back from an existing overscroll.
         val consumedByOverscroll = if (currentOffset != Offset.Zero) {
@@ -118,6 +113,8 @@ internal class OverscrollEffectImpl(
         velocity: Velocity,
         performFling: suspend (Velocity) -> Velocity,
     ) {
+        effectNode.onApplyToFling(velocity)
+
         // Launching the fling and the overscroll animation at the same time with the same velocity
         // to avoid stuttering
         scope.launch { performFling(velocity) }
@@ -127,7 +124,7 @@ internal class OverscrollEffectImpl(
                 if (offsetValue.let { it <= -endThreshold || it >= startThreshold }) {
                     onOverscrolled(
                         true,
-                        if (offsetValue < 0f) Direction.FromEnd else Direction.FromStart,
+                        if (offsetValue < 0f) FromEnd else FromStart,
                     )
                 }
                 offsetAnimatable.animateTo(
